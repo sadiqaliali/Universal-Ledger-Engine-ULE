@@ -1,14 +1,21 @@
 #!/bin/bash
-# ULE Bootstrapper Script
-echo "🌌 Initializing ULE Engine..."
+# ULE Production Bootstrapper Script
+set -e # Exit on error
 
-if ! command -v docker &> /dev/null; then
-    echo "❌ Error: Docker is not installed. Please install Docker from https://www.docker.com/"
+echo "🌌 Initializing ULE Production Environment..."
+
+# Check dependencies
+if ! command -v docker &> /dev/null || ! command -v docker-compose &> /dev/null; then
+    echo "❌ Error: Docker and Docker Compose are required."
+    echo "👉 Please install from: https://www.docker.com/"
     exit 1
 fi
 
-echo "🚀 Starting ULE Database..."
+echo "🚀 Spinning up ULE Infrastructure..."
 docker-compose up -d --build
 
 echo "✅ ULE is running at http://localhost:8000"
-echo "👉 To stop it, run: docker-compose down"
+echo "------------------------------------------------"
+echo "👉 To check logs: docker-compose logs -f"
+echo "👉 To stop the engine: docker-compose down"
+echo "------------------------------------------------"
