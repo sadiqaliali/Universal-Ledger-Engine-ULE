@@ -3,10 +3,10 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ule-db"
+name = "ule-db-SadiqAli-123"
 version = "0.1.0"
 authors = [
-  { name="ULE Contributors", email="ule@example.com" },
+  { name="Muhammad Sadiq Ali", email="sadiqaliali1987@gmail.com" },
 ]
 description = "Universal Ledger Engine: One File, Every Model, Absolute Trust"
 readme = "README.md"

@@ -35,11 +35,11 @@
 
 ```bash
 # Install from PyPI
-pip install ule-db
+pip install ule-db-SadiqAli-123
 
 # Or install from source
-git clone https://github.com/ule-db/ule.git
-cd ule
+git clone https://github.com/sadiqaliali/Universal-Ledger-Engine-ULE.git
+cd Universal-Ledger-Engine-ULE
 pip install -e .
 ```
 

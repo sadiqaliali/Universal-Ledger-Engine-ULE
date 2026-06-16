@@ -148,9 +148,9 @@ ule/utils/__init__.py
 ule/utils/benchmark.py
 ule/utils/helpers.py
 ule/utils/logger.py
-ule_db.egg-info/PKG-INFO
-ule_db.egg-info/SOURCES.txt
-ule_db.egg-info/dependency_links.txt
-ule_db.egg-info/entry_points.txt
-ule_db.egg-info/requires.txt
-ule_db.egg-info/top_level.txt
+ule_db_SadiqAli_123.egg-info/PKG-INFO
+ule_db_SadiqAli_123.egg-info/SOURCES.txt
+ule_db_SadiqAli_123.egg-info/dependency_links.txt
+ule_db_SadiqAli_123.egg-info/entry_points.txt
+ule_db_SadiqAli_123.egg-info/requires.txt
+ule_db_SadiqAli_123.egg-info/top_level.txt
