@@ -1,0 +1,10 @@
+{
+  "version": "002",
+  "description": "Second",
+  "up_sql": "SELECT 1",
+  "down_sql": null,
+  "dependencies": [
+    "001"
+  ],
+  "created_at": 1781625344.480795
+}

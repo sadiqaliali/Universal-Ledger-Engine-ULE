@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  ule-db:
+    build: .
+    container_name: ule-engine
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: always

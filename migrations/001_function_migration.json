@@ -1,0 +1,8 @@
+{
+  "version": "001",
+  "description": "Function migration",
+  "up_sql": null,
+  "down_sql": null,
+  "dependencies": [],
+  "created_at": 1781625344.5061662
+}

@@ -1,0 +1,8 @@
+{
+  "version": "001",
+  "description": "Create IoT schema",
+  "up_sql": "\n                CREATE TABLE devices (id INTEGER PRIMARY KEY, name TEXT, status TEXT);\n                CREATE TABLE readings (id INTEGER PRIMARY KEY, device_id INTEGER, value REAL, timestamp REAL);\n            ",
+  "down_sql": "DROP TABLE readings; DROP TABLE devices;",
+  "dependencies": [],
+  "created_at": 1781625343.8031604
+}

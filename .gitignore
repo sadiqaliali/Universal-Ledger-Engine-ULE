@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+.venv/
+venv/
+.env
+
+# Databases & Persistence
+*.udb
+*.udb-shm
+*.udb-wal
+my_vault.*
+production_test.*
+*.sqlite
+*.db
+
+# Testing & Logs
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# IDEs & System
+.DS_Store
+.idea/
+.vscode/
+.git/

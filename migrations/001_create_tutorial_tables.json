@@ -1,0 +1,8 @@
+{
+  "version": "001",
+  "description": "Create tutorial tables",
+  "up_sql": "CREATE TABLE tutorial_progress (\n                tutorial_id TEXT,\n                user_id TEXT DEFAULT 'default',\n                status TEXT NOT NULL DEFAULT 'not_started',\n                current_step INTEGER DEFAULT 0,\n                started_at REAL,\n                completed_at REAL,\n                PRIMARY KEY (tutorial_id, user_id)\n            )",
+  "down_sql": "DROP TABLE tutorial_progress",
+  "dependencies": [],
+  "created_at": 1781625343.7385619
+}

@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ULE - Universal Ledger Engine</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a2e; color: #eee; min-height: 100vh; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px 40px; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { font-size: 24px; }
+        .header .status { background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 20px; font-size: 14px; }
+        .status.connected { background: #10b981; }
+        .status.disconnected { background: #ef4444; }
+        .container { display: flex; max-width: 1600px; margin: 0 auto; padding: 20px; gap: 20px; }
+        .sidebar { width: 300px; background: #16213e; border-radius: 12px; padding: 20px; height: fit-content; }
+        .main { flex: 1; background: #16213e; border-radius: 12px; padding: 20px; }
+        .card { background: #0f3460; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+        .card h3 { color: #667eea; margin-bottom: 12px; font-size: 16px; }
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; margin-bottom: 6px; font-size: 14px; color: #aaa; }
+        .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 10px; border: 1px solid #333; border-radius: 6px; background: #1a1a2e; color: #eee; font-size: 14px; }
+        .form-group textarea { min-height: 100px; font-family: 'Courier New', monospace; }
+        .btn { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; width: 100%; margin-top: 8px; }
+        .btn:hover { opacity: 0.9; }
+        .btn-secondary { background: #333; }
+        .btn-danger { background: #ef4444; }
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        .stat-box { background: #1a1a2e; padding: 16px; border-radius: 8px; text-align: center; }
+        .stat-box .value { font-size: 28px; font-weight: bold; color: #667eea; }
+        .stat-box .label { font-size: 12px; color: #888; margin-top: 4px; }
+        .results { background: #1a1a2e; border-radius: 8px; padding: 16px; margin-top: 16px; max-height: 400px; overflow: auto; }
+        .results pre { background: #0f3460; padding: 12px; border-radius: 6px; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #333; }
+        th { background: #0f3460; color: #667eea; font-weight: 600; }
+        tr:hover { background: rgba(102, 126, 234, 0.1); }
+        .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+        .tab { padding: 10px 20px; background: #0f3460; border-radius: 6px; cursor: pointer; border: none; color: #aaa; }
+        .tab.active { background: #667eea; color: white; }
+        .message { padding: 12px; border-radius: 6px; margin-bottom: 16px; }
+        .message.success { background: #10b981; }
+        .message.error { background: #ef4444; }
+        .hidden { display: none; }
+        .badge { display: inline-block; padding: 4px 8px; background: #667eea; border-radius: 4px; font-size: 12px; margin-right: 6px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🌌 ULE - Universal Ledger Engine</h1>
+        <div class="status {{ 'connected' if connected else 'disconnected' }}">
+            {{ 'Connected' if connected else 'Disconnected' }}
+            {% if db_path %} - {{ db_path }}{% endif %}
+        </div>
+        <div style="margin-left: 20px;">
+            {% if authenticated %}
+            <span class="badge">🔐 Logged in</span>
+            <button onclick="logout()" class="btn btn-danger" style="width: auto; padding: 6px 12px; margin: 0;">Logout</button>
+            {% else %}
+            <span class="badge" style="background: #ef4444;">🔒 Not logged in</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Login Modal -->
+        {% if not authenticated %}
+        <div id="loginModal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1000;">
+            <div class="card" style="width: 400px; max-width: 90%;">
+                <h3>🔐 Login to ULE</h3>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" id="loginUsername" placeholder="admin">
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="loginPassword" placeholder="Enter password">
+                    </div>
+                    <button type="submit" class="btn">Login</button>
+                    <p style="margin-top: 12px; font-size: 12px; color: #888;">
+                        Set credentials via <code>ULE_ADMIN_PASSWORD</code> env var or run <code>ule init</code>.
+                    </p>
+                </form>
+                <div id="loginMessage" style="margin-top: 12px;"></div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="sidebar">
+            <div class="card">
+                <h3>📁 Database Connection</h3>
+                {% if not connected %}
+                <form id="connectForm">
+                    <div class="form-group">
+                        <label>Database Path (.udb file)</label>
+                        <input type="text" id="dbPath" placeholder="mydb.udb" value="mydb.udb">
+                    </div>
+                    <button type="submit" class="btn">Connect</button>
+                </form>
+                {% else %}
+                <form id="disconnectForm">
+                    <button type="submit" class="btn btn-danger">Disconnect</button>
+                </form>
+                {% endif %}
+            </div>
+
+            <div class="card">
+                <h3>📊 Statistics</h3>
+                <div class="stats-grid" id="statsGrid">
+                    <div class="stat-box">
+                        <div class="value" id="statTables">-</div>
+                        <div class="label">Tables</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="value" id="statDocs">-</div>
+                        <div class="label">Documents</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="value" id="statEdges">-</div>
+                        <div class="label">Edges</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="value" id="statVectors">-</div>
+                        <div class="label">Vectors</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="value" id="statAudit">-</div>
+                        <div class="label">Audit Blocks</div>
+                    </div>
+                </div>
+                <button onclick="loadStats()" class="btn btn-secondary" style="margin-top:12px;">Refresh</button>
+            </div>
+
+            <div class="card">
+                <h3>🔗 Quick Actions</h3>
+                <button onclick="showTab('tables')" class="btn btn-secondary">List Tables</button>
+                <button onclick="verifyDb()" class="btn btn-secondary">Verify DB</button>
+                <button onclick="showAudit()" class="btn btn-secondary">View Audit</button>
+            </div>
+        </div>
+
+        <div class="main">
+            <div id="messageArea"></div>
+
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('query')">SQL Query</button>
+                <button class="tab" onclick="showTab('nlq')">Natural Language</button>
+                <button class="tab" onclick="showTab('documents')">Documents</button>
+                <button class="tab" onclick="showTab('graph')">Graph</button>
+                <button class="tab" onclick="showTab('quantum')">⚛️ Quantum</button>
+            </div>
+
+            <!-- SQL Query Tab -->
+            <div id="queryTab" class="tab-content">
+                <div class="card">
+                    <h3>Execute SQL Query</h3>
+                    <form id="sqlForm">
+                        <div class="form-group">
+                            <label>SQL Query</label>
+                            <textarea id="sqlQuery" placeholder="SELECT * FROM users">SELECT * FROM users</textarea>
+                        </div>
+                        <button type="submit" class="btn">Run Query</button>
+                    </form>
+                </div>
+                <div id="sqlResults" class="results hidden"></div>
+            </div>
+
+            <!-- Natural Language Tab -->
+            <div id="nlqTab" class="tab-content hidden">
+                <div class="card">
+                    <h3>Ask in Natural Language</h3>
+                    <form id="nlqForm">
+                        <div class="form-group">
+                            <label>Your Question (English)</label>
+                            <input type="text" id="nlqQuery" placeholder="show all users">
+                        </div>
+                        <button type="submit" class="btn">Ask</button>
+                    </form>
+                </div>
+                <div id="nlqResults" class="results hidden"></div>
+            </div>
+
+            <!-- Documents Tab -->
+            <div id="documentsTab" class="tab-content hidden">
+                <div class="card">
+                    <h3>Push Document</h3>
+                    <form id="pushForm">
+                        <div class="form-group">
+                            <label>Collection Name</label>
+                            <input type="text" id="docCollection" placeholder="logs">
+                        </div>
+                        <div class="form-group">
+                            <label>JSON Data</label>
+                            <textarea id="docData" placeholder='{"level":"info","msg":"test"}'></textarea>
+                        </div>
+                        <button type="submit" class="btn">Push Document</button>
+                    </form>
+                </div>
+                <div class="card">
+                    <h3>Find Documents</h3>
+                    <form id="findForm">
+                        <div class="form-group">
+                            <label>Collection Name</label>
+                            <input type="text" id="findCollection" placeholder="logs">
+                        </div>
+                        <button type="submit" class="btn">Find</button>
+                    </form>
+                </div>
+                <div id="docResults" class="results hidden"></div>
+            </div>
+
+            <!-- Graph Tab -->
+            <div id="graphTab" class="tab-content hidden">
+                <div class="card">
+                    <h3>Create Relationship</h3>
+                    <form id="linkForm">
+                        <div class="form-group">
+                            <label>From Table</label>
+                            <input type="text" id="linkFromTable" placeholder="users">
+                        </div>
+                        <div class="form-group">
+                            <label>From ID</label>
+                            <input type="text" id="linkFromId" placeholder="1">
+                        </div>
+                        <div class="form-group">
+                            <label>To Table</label>
+                            <input type="text" id="linkToTable" placeholder="users">
+                        </div>
+                        <div class="form-group">
+                            <label>To ID</label>
+                            <input type="text" id="linkToId" placeholder="2">
+                        </div>
+                        <div class="form-group">
+                            <label>Relation</label>
+                            <input type="text" id="linkRelation" placeholder="FRIEND">
+                        </div>
+                        <button type="submit" class="btn">Create Link</button>
+                    </form>
+                </div>
+                <div class="card">
+                    <h3>Traverse Graph</h3>
+                    <form id="traverseForm">
+                        <div class="form-group">
+                            <label>Table</label>
+                            <input type="text" id="traverseTable" placeholder="users">
+                        </div>
+                        <div class="form-group">
+                            <label>Node ID</label>
+                            <input type="text" id="traverseId" placeholder="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Depth</label>
+                            <input type="number" id="traverseDepth" value="2" min="1" max="5">
+                        </div>
+                        <button type="submit" class="btn">Traverse</button>
+                    </form>
+                </div>
+                <div id="graphResults" class="results hidden"></div>
+            </div>
+
+            <!-- Quantum Computing Tab -->
+            <div id="quantumTab" class="tab-content hidden">
+                <div class="card">
+                    <h3>⚛️ Quantum Computing</h3>
+                    <p style="color: #888; margin-bottom: 16px;">Run quantum circuits and algorithms with security validation</p>
+                    
+                    <div class="stats-grid" style="margin-bottom: 16px;">
+                        <div class="stat-box">
+                            <div class="value" id="quantumQubits">20</div>
+                            <div class="label">Max Qubits</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="value" id="quantumGates">15+</div>
+                            <div class="label">Quantum Gates</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="value" id="quantumAlgos">6</div>
+                            <div class="label">Algorithms</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Initialize Quantum Register</h3>
+                    <form id="quantumInitForm">
+                        <div class="form-group">
+                            <label>Number of Qubits (1-10)</label>
+                            <input type="number" id="quantumNumQubits" value="2" min="1" max="10">
+                        </div>
+                        <div class="form-group">
+                            <label>Initial State (e.g., 00, 01, 110)</label>
+                            <input type="text" id="quantumInitialState" value="00" pattern="[01]+">
+                        </div>
+                        <button type="submit" class="btn">Initialize Register</button>
+                    </form>
+                    <div id="quantumInitResults" class="results hidden"></div>
+                </div>
+
+                <div class="card">
+                    <h3>Apply Quantum Gate</h3>
+                    <form id="quantumGateForm">
+                        <div class="form-group">
+                            <label>Gate</label>
+                            <select id="quantumGate">
+                                <option value="H">Hadamard (H)</option>
+                                <option value="X">Pauli-X (NOT)</option>
+                                <option value="Y">Pauli-Y</option>
+                                <option value="Z">Pauli-Z</option>
+                                <option value="S">Phase (S)</option>
+                                <option value="T">T Gate</option>
+                                <option value="CNOT">CNOT</option>
+                                <option value="CZ">CZ</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Target Qubit</label>
+                            <input type="number" id="quantumTarget" value="0" min="0" max="9">
+                        </div>
+                        <div class="form-group" id="quantumControlGroup" style="display:none;">
+                            <label>Control Qubit (for CNOT/CZ)</label>
+                            <input type="number" id="quantumControl" value="1" min="0" max="9">
+                        </div>
+                        <button type="submit" class="btn">Apply Gate</button>
+                    </form>
+                    <div id="quantumGateResults" class="results hidden"></div>
+                </div>
+
+                <div class="card">
+                    <h3>Run Quantum Algorithm</h3>
+                    <form id="quantumAlgoForm">
+                        <div class="form-group">
+                            <label>Algorithm</label>
+                            <select id="quantumAlgorithm">
+                                <option value="grover">Grover's Search</option>
+                                <option value="deutsch-jozsa">Deutsch-Jozsa</option>
+                                <option value="bernstein-vazirani">Bernstein-Vazirani</option>
+                                <option value="qft">Quantum Fourier Transform</option>
+                                <option value="teleportation">Quantum Teleportation</option>
+                                <option value="superdense">Superdense Coding</option>
+                            </select>
+                        </div>
+                        <div id="quantumAlgoParams"></div>
+                        <button type="submit" class="btn">Run Algorithm</button>
+                    </form>
+                    <div id="quantumAlgoResults" class="results hidden"></div>
+                </div>
+
+                <div class="card">
+                    <h3>Quantum Engine Info</h3>
+                    <button onclick="loadQuantumInfo()" class="btn">Get Info</button>
+                    <div id="quantumInfoResults" class="results hidden"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let authToken = null;
+
+        function showMessage(msg, type) {
+            const area = document.getElementById('messageArea');
+            area.innerHTML = `<div class="message ${type}">${msg}</div>`;
+            setTimeout(() => area.innerHTML = '', 5000);
+        }
+
+        function showLoginMessage(msg, type) {
+            const area = document.getElementById('loginMessage');
+            area.innerHTML = `<div class="message ${type}">${msg}</div>`;
+        }
+
+        async function logout() {
+            try {
+                const formData = new FormData();
+                await fetch('/logout', { method: 'POST', body: formData });
+                location.reload();
+            } catch (e) {
+                showMessage('Logout failed', 'error');
+            }
+        }
+
+        // Login Form
+        document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData();
+            formData.append('username', document.getElementById('loginUsername').value);
+            formData.append('password', document.getElementById('loginPassword').value);
+
+            try {
+                const res = await fetch('/login', { method: 'POST', body: formData });
+                const data = await res.json();
+
+                if (res.ok) {
+                    authToken = data.token;
+                    localStorage.setItem('ule_auth_token', data.token);
+                    showLoginMessage('Login successful! Redirecting...', 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showLoginMessage(data.detail || 'Login failed', 'error');
+                }
+            } catch (e) {
+                showLoginMessage('Login failed', 'error');
+            }
+        });
+
+        // Auto-load token from localStorage
+        const savedToken = localStorage.getItem('ule_auth_token');
+        if (savedToken) {
+            authToken = savedToken;
+        }
+
+        function showResults(elementId, data) {
+            const el = document.getElementById(elementId);
+            el.classList.remove('hidden');
+            if (Array.isArray(data) && data.length > 0) {
+                let html = '<table><thead><tr>';
+                Object.keys(data[0]).forEach(key => {
+                    html += `<th>${key}</th>`;
+                });
+                html += '</tr></thead><tbody>';
+                data.forEach(row => {
+                    html += '<tr>';
+                    Object.values(row).forEach(val => {
+                        html += `<td>${val}</td>`;
+                    });
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+                el.innerHTML = html;
+            } else {
+                el.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            }
+        }
+
+        async function loadStats() {
+            try {
+                const res = await fetch('/stats', {
+                    headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('statTables').textContent = data.stats.tables;
+                    document.getElementById('statDocs').textContent = data.stats.documents;
+                    document.getElementById('statEdges').textContent = data.stats.edges;
+                    document.getElementById('statVectors').textContent = data.stats.vectors;
+                    document.getElementById('statAudit').textContent = data.stats.audit_blocks;
+                }
+            } catch (e) {}
+        }
+
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabName + 'Tab').classList.remove('hidden');
+            event.target.classList.add('active');
+            if (tabName === 'tables') listTables();
+        }
+
+        // Connect Form
+        document.getElementById('connectForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData();
+            formData.append('db_path', document.getElementById('dbPath').value);
+            try {
+                const res = await fetch('/connect', {
+                    method: 'POST',
+                    body: formData,
+                    headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showMessage(data.message, 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showMessage(data.detail, 'error');
+                }
+            } catch (e) {
+                showMessage('Connection failed', 'error');
+            }
+        });
+
+        // Disconnect Form
+        document.getElementById('disconnectForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await fetch('/disconnect', { method: 'POST' });
+            location.reload();
+        });
+
+        // SQL Form
+        document.getElementById('sqlForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData();
+            formData.append('sql', document.getElementById('sqlQuery').value);
+            formData.append('query_type', 'sql');
+            try {
+                const res = await fetch('/query', {
+                    method: 'POST',
+                    body: formData,
+                    headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showResults('sqlResults', data.rows);
+                    showMessage(`Query returned ${data.count} rows`, 'success');
+                    loadStats();
+                } else {
+                    showMessage(data.detail, 'error');
+                }
+            } catch (e) {
+                showMessage('Query failed', 'error');
+            }
+        });
+
+        // NLQ Form
+        document.getElementById('nlqForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData();
+            formData.append('sql', document.getElementById('nlqQuery').value);
+            formData.append('query_type', 'nlq');
+            try {
+                const res = await fetch('/query', {
+                    method: 'POST',
+                    body: formData,
+                    headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showResults('nlqResults', data.rows);
+                    showMessage('Query executed', 'success');
+                } else {
+                    showMessage(data.detail, 'error');
+                }
+            } catch (e) {
+                showMessage('Query failed', 'error');
+            }
+        });
+
+        // Push Document
+        document.getElementById('pushForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData();
+            formData.append('collection', document.getElementById('docCollection').value);
+            formData.append('data', document.getElementById('docData').value);
+            try {
+                const res = await fetch('/push', {
+                    method: 'POST',
+                    body: formData,
+                    headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showMessage(`Document pushed with ID: ${data.doc_id}`, 'success');
+                    loadStats();
+                } else {
+                    showMessage(data.detail, 'error');
+                }
+            } catch (e) {
+                showMessage('Push failed', 'error');
+            }
+        });
+
+        // Find Documents
+        document.getElementById('findForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const collection = document.getElementById('findCollection').value;
+            try {
+                const res = await fetch(`/find/${collection}`, {
+                    headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showResults('docResults', data.documents);
+                    showMessage(`Found ${data.count} documents`, 'success');
+                } else {
+                    showMessage(data.detail, 'error');
+                }
+            } catch (e) {
+                showMessage('Find failed', 'error');
+            }
+        });
+
+        // Link
+        document.getElementById('linkForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData();
+            formData.append('from_table', document.getElementById('linkFromTable').value);
+            formData.append('from_id', document.getElementById('linkFromId').value);
+            formData.append('to_table', document.getElementById('linkToTable').value);
+            formData.append('to_id', document.getElementById('linkToId').value);
+            formData.append('relation', document.getElementById('linkRelation').value);
+            try {
+                const res = await fetch('/link', {
+                    method: 'POST',
+                    body: formData,
+                    headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showMessage(data.message, 'success');
+                    loadStats();
+                } else {
+                    showMessage(data.detail, 'error');
+                }
+            } catch (e) {
+                showMessage('Link failed', 'error');
+            }
+        });
+
+        // Traverse
+        document.getElementById('traverseForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const table = document.getElementById('traverseTable').value;
+            const id = document.getElementById('traverseId').value;
+            const depth = document.getElementById('traverseDepth').value;
+            try {
+                const res = await fetch(`/traverse/${table}/${id}?depth=${depth}`, {
+                    headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showResults('graphResults', data.edges);
+                    showMessage(`Found ${data.count} edges`, 'success');
+                } else {
+                    showMessage(data.detail, 'error');
+                }
+            } catch (e) {
+                showMessage('Traverse failed', 'error');
+            }
+        });
+
+        async function listTables() {
+            try {
+                const res = await fetch('/tables', {
+                    headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showResults('sqlResults', data.tables.map(t => ({ table_name: t })));
+                }
+            } catch (e) {}
+        }
+
+        async function verifyDb() {
+            try {
+                const res = await fetch('/verify', {
+                    headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
+                });
+                const data = await res.json();
+                showMessage(data.message, data.valid ? 'success' : 'error');
+            } catch (e) {
+                showMessage('Verify failed', 'error');
+            }
+        }
+
+        async function showAudit() {
+            try {
+                const res = await fetch('/audit?limit=20', {
+                    headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showResults('sqlResults', data.audit);
+                }
+            } catch (e) {}
+        }
+
+        // Load stats on page load
+        if ({{ 'true' if connected else 'false' }}) {
+            loadStats();
+        }
+
+        // ========== Quantum Computing Functions ==========
+        
+        // Show/hide control qubit input based on gate selection
+        document.getElementById('quantumGate')?.addEventListener('change', (e) => {
+            const controlGroup = document.getElementById('quantumControlGroup');
+            if (['CNOT', 'CZ'].includes(e.target.value)) {
+                controlGroup.style.display = 'block';
+            } else {
+                controlGroup.style.display = 'none';
+            }
+        });
+
+        // Show algorithm-specific parameters
+        document.getElementById('quantumAlgorithm')?.addEventListener('change', (e) => {
+            const paramsDiv = document.getElementById('quantumAlgoParams');
+            const algo = e.target.value;
+            
+            let paramsHTML = '';
+            if (algo === 'grover') {
+                paramsHTML = `
+                    <div class="form-group" style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <div>
+                            <label>Qubits (n)</label>
+                            <input type="number" id="algoN" value="3" min="1" max="10">
+                        </div>
+                        <div>
+                            <label>Target (0 to 2^n-1)</label>
+                            <input type="number" id="algoTarget" value="5" min="0" max="7">
+                        </div>
+                    </div>
+                `;
+            } else if (algo === 'deutsch-jozsa') {
+                paramsHTML = `
+                    <div class="form-group" style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <div>
+                            <label>Qubits (n)</label>
+                            <input type="number" id="algoN" value="3" min="1" max="10">
+                        </div>
+                        <div>
+                            <label>Function Type</label>
+                            <select id="algoType">
+                                <option value="constant">Constant</option>
+                                <option value="balanced">Balanced</option>
+                            </select>
+                        </div>
+                    </div>
+                `;
+            } else if (algo === 'bernstein-vazirani') {
+                paramsHTML = `
+                    <div class="form-group" style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <div>
+                            <label>Qubits (n)</label>
+                            <input type="number" id="algoN" value="4" min="1" max="10">
+                        </div>
+                        <div>
+                            <label>Secret (0 to 2^n-1)</label>
+                            <input type="number" id="algoSecret" value="10" min="0" max="15">
+                        </div>
+                    </div>
+                `;
+            } else if (algo === 'qft') {
+                paramsHTML = `
+                    <div class="form-group" style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <div>
+                            <label>Qubits (n)</label>
+                            <input type="number" id="algoN" value="3" min="1" max="10">
+                        </div>
+                        <div>
+                            <label>Input State</label>
+                            <input type="number" id="algoInput" value="1" min="0" max="7">
+                        </div>
+                    </div>
+                `;
+            } else if (algo === 'teleportation') {
+                paramsHTML = `
+                    <div class="form-group">
+                        <label>State to Teleport</label>
+                        <select id="algoState">
+                            <option value="plus">|+⟩ (superposition)</option>
+                            <option value="zero">|0⟩</option>
+                            <option value="one">|1⟩</option>
+                        </select>
+                    </div>
+                `;
+            } else if (algo === 'superdense') {
+                paramsHTML = `
+                    <div class="form-group">
+                        <label>Message (0-3)</label>
+                        <input type="number" id="algoMessage" value="2" min="0" max="3">
+                    </div>
+                `;
+            }
+            paramsDiv.innerHTML = paramsHTML;
+        });
+
+        // Initialize algorithm params on load
+        if (document.getElementById('quantumAlgorithm')) {
+            document.getElementById('quantumAlgorithm').dispatchEvent(new Event('change'));
+        }
+
+        // Quantum Init
+        document.getElementById('quantumInitForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData();
+            formData.append('num_qubits', document.getElementById('quantumNumQubits').value);
+            formData.append('initial_state', document.getElementById('quantumInitialState').value);
+            try {
+                const res = await fetch('/quantum/init', {
+                    method: 'POST',
+                    body: formData,
+                    headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    document.getElementById('quantumInitResults').innerHTML = 
+                        `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                    document.getElementById('quantumInitResults').classList.remove('hidden');
+                } else {
+                    showMessage(data.detail, 'error');
+                }
+            } catch (e) {
+                showMessage('Quantum init failed', 'error');
+            }
+        });
+
+        // Quantum Gate
+        document.getElementById('quantumGateForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData();
+            formData.append('gate_name', document.getElementById('quantumGate').value);
+            formData.append('target', document.getElementById('quantumTarget').value);
+            formData.append('num_qubits', '2');
+            if (['CNOT', 'CZ'].includes(document.getElementById('quantumGate').value)) {
+                formData.append('control', document.getElementById('quantumControl').value);
+            }
+            try {
+                const res = await fetch('/quantum/gate', {
+                    method: 'POST',
+                    body: formData,
+                    headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    document.getElementById('quantumGateResults').innerHTML = 
+                        `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                    document.getElementById('quantumGateResults').classList.remove('hidden');
+                } else {
+                    showMessage(data.detail, 'error');
+                }
+            } catch (e) {
+                showMessage('Quantum gate failed', 'error');
+            }
+        });
+
+        // Quantum Algorithm
+        document.getElementById('quantumAlgoForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const algorithm = document.getElementById('quantumAlgorithm').value;
+            const params = {};
+            
+            const nEl = document.getElementById('algoN');
+            if (nEl) params.n = parseInt(nEl.value);
+            
+            const targetEl = document.getElementById('algoTarget');
+            if (targetEl) params.target = parseInt(targetEl.value);
+            
+            const typeEl = document.getElementById('algoType');
+            if (typeEl) params.type = typeEl.value;
+            
+            const secretEl = document.getElementById('algoSecret');
+            if (secretEl) params.secret = parseInt(secretEl.value);
+            
+            const inputEl = document.getElementById('algoInput');
+            if (inputEl) params.input = parseInt(inputEl.value);
+            
+            const stateEl = document.getElementById('algoState');
+            if (stateEl) params.state = stateEl.value;
+            
+            const messageEl = document.getElementById('algoMessage');
+            if (messageEl) params.message = parseInt(messageEl.value);
+
+            const formData = new FormData();
+            formData.append('algorithm', algorithm);
+            formData.append('params', JSON.stringify(params));
+            
+            try {
+                const res = await fetch('/quantum/algorithm', {
+                    method: 'POST',
+                    body: formData,
+                    headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    document.getElementById('quantumAlgoResults').innerHTML = 
+                        `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                    document.getElementById('quantumAlgoResults').classList.remove('hidden');
+                } else {
+                    showMessage(data.detail, 'error');
+                }
+            } catch (e) {
+                showMessage('Quantum algorithm failed', 'error');
+            }
+        });
+
+        // Quantum Info
+        async function loadQuantumInfo() {
+            try {
+                const res = await fetch('/quantum/info', {
+                    headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    const stats = data.stats;
+                    document.getElementById('quantumInfoResults').innerHTML = `
+                        <div class="stats-grid">
+                            <div class="stat-box">
+                                <div class="value">${stats.max_qubits}</div>
+                                <div class="label">Max Qubits</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="value">${stats.max_states}</div>
+                                <div class="label">Max States</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="value">${stats.states_count}</div>
+                                <div class="label">Stored States</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="value">${stats.circuits_count}</div>
+                                <div class="label">Stored Circuits</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="value">${stats.qiskit_available ? 'Yes' : 'No'}</div>
+                                <div class="label">Qiskit Available</div>
+                            </div>
+                        </div>
+                        <pre style="margin-top: 16px;">${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                    document.getElementById('quantumInfoResults').classList.remove('hidden');
+                } else {
+                    showMessage(data.detail, 'error');
+                }
+            } catch (e) {
+                showMessage('Quantum info failed', 'error');
+            }
+        }
+    </script>
+</body>
+</html>

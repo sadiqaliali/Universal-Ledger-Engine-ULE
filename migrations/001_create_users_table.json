@@ -1,0 +1,8 @@
+{
+  "version": "001",
+  "description": "Create users table",
+  "up_sql": "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)",
+  "down_sql": "DROP TABLE users",
+  "dependencies": [],
+  "created_at": 1781625344.3020363
+}

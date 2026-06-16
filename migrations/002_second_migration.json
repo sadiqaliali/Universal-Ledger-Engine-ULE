@@ -1,0 +1,8 @@
+{
+  "version": "002",
+  "description": "Second migration",
+  "up_sql": "SELECT 1",
+  "down_sql": null,
+  "dependencies": [],
+  "created_at": 1781625344.4019907
+}
