@@ -12,10 +12,13 @@ venv/
 *.udb
 *.udb-shm
 *.udb-wal
-my_vault.*
-production_test.*
 *.sqlite
 *.db
+
+# Build & Packaging
+dist/
+build/
+*.egg-info/
 
 # Testing & Logs
 .pytest_cache/
@@ -24,14 +27,18 @@ htmlcov/
 *.log
 test_*_snapshots/
 
-# Build & Packaging
-dist/
-build/
-*.egg-info/
+# Sensitive/Unwanted Reports
+GAP_ANALYSIS_AND_RECOMMENDATIONS.md
+GEMINI_PROFESSIONAL_ANALYSIS.md
+ULE_PROGRESS_AND_STABILIZATION_REPORT.md
+qweenanalysis.md
+LAUNCH_PLAN.md
+FINAL_LAUNCH_REPORT.md
+Professional Database Interface.md
+*.pdf
 
 # IDEs & System
 .DS_Store
 .idea/
 .vscode/
 .git/
-*.pdf
