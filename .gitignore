@@ -22,9 +22,16 @@ production_test.*
 .coverage
 htmlcov/
 *.log
+test_*_snapshots/
+
+# Build & Packaging
+dist/
+build/
+*.egg-info/
 
 # IDEs & System
 .DS_Store
 .idea/
 .vscode/
 .git/
+*.pdf
