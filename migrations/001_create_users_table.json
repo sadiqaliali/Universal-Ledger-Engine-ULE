@@ -4,5 +4,5 @@
   "up_sql": "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)",
   "down_sql": "DROP TABLE users",
   "dependencies": [],
-  "created_at": 1781625344.3020363
+  "created_at": 1781682352.7945917
 }

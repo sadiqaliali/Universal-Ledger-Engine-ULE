@@ -1,0 +1,2 @@
+[console_scripts]
+ule = ule.cli:main

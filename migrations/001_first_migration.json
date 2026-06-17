@@ -4,5 +4,5 @@
   "up_sql": "SELECT 1",
   "down_sql": null,
   "dependencies": [],
-  "created_at": 1781625344.3989837
+  "created_at": 1781682352.9532976
 }
